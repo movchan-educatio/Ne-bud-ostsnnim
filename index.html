@@ -54,8 +54,15 @@ h1{margin:0 0 6px;font-size:34px} h2{margin:20px 0 10px}
 }
 @media(max-width:500px){.grid{grid-template-columns:1fr 1fr}.card{padding:18px}.logo{font-size:48px}}
 </style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#07101b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Не будь останнім">
+<link rel="apple-touch-icon" href="icon-180.png">
 </head>
-<body>
+<body oncontextmenu="return false" onselectstart="return false">
 <canvas id="game"></canvas>
 
 <div id="start">
@@ -391,6 +398,11 @@ setupJoystick();renderMenu();updatePoints();
 
 function loop(t){let dt=Math.min(.033,(t-last)/1000||0);last=t;gameUpdate(dt);draw();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
 </script>
 </body>
 </html>
