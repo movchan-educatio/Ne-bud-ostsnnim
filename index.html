@@ -39,6 +39,19 @@ h1{margin:0 0 6px;font-size:34px} h2{margin:20px 0 10px}
 .subtitle{margin:16px auto;max-width:550px;opacity:.8}
 .tip{font-size:12px;opacity:.6;margin-top:12px}
 #pause{position:fixed;right:10px;top:52px;z-index:7;background:#111b2dcc;color:#fff;border:1px solid #fff3;border-radius:11px;padding:8px 10px}
+#joystick{position:fixed;left:22px;bottom:max(28px,calc(env(safe-area-inset-bottom) + 22px));width:138px;height:138px;border-radius:50%;z-index:8;background:#0b1629aa;border:3px solid #5b9cff88;box-shadow:inset 0 0 0 14px #5b9cff12;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+#stick{width:62px;height:62px;border-radius:50%;background:#3d91ffdd;border:3px solid #ffffff99;box-shadow:0 5px 20px #0008;transform:translate(0,0)}
+#mobileHint{position:fixed;left:175px;bottom:max(34px,calc(env(safe-area-inset-bottom) + 28px));z-index:7;color:#fff;background:#08111dcc;border:1px solid #ffffff18;border-radius:12px;padding:8px 10px;font-size:10px;font-weight:900;opacity:.75;pointer-events:none}
+@media(max-width:600px){
+ #top{top:max(8px,env(safe-area-inset-top))}
+ #weapon{right:10px;bottom:calc(max(92px,env(safe-area-inset-bottom) + 92px));}
+ #shoot{right:18px;bottom:calc(max(175px,env(safe-area-inset-bottom) + 175px));}
+ #ability{right:98px;bottom:calc(max(105px,env(safe-area-inset-bottom) + 105px));}
+ #dash{right:98px;bottom:calc(max(185px,env(safe-area-inset-bottom) + 185px));}
+ #swap{right:18px;bottom:calc(max(95px,env(safe-area-inset-bottom) + 95px));}
+ #hud{bottom:max(180px,calc(env(safe-area-inset-bottom) + 180px))}
+ #mobileHint{display:block}
+}
 @media(max-width:500px){.grid{grid-template-columns:1fr 1fr}.card{padding:18px}.logo{font-size:48px}}
 </style>
 </head>
@@ -61,6 +74,8 @@ h1{margin:0 0 6px;font-size:34px} h2{margin:20px 0 10px}
   <div class="pill">⭐ <span id="points">0</span></div>
 </div>
 
+<div id="joystick" aria-label="Джойстик"><div id="stick"></div></div>
+<div id="mobileHint">РУХАЙСЯ джойстиком • 🔥 СТРІЛЯЙ</div>
 <div id="hud">
   <div id="hpbar"><div id="hp"></div></div>
   <div id="armor"></div>
@@ -306,7 +321,7 @@ function draw(){
  // player
  if(player&&player.alive){if(shieldT>0){ctx.strokeStyle='#55bfff';ctx.lineWidth=7;ctx.beginPath();ctx.arc(player.x,player.y,34,0,7);ctx.stroke()}drawCharacter(player,skin().color,'ТИ')}
  // bullets
- for(let b of bullets){ctx.fillStyle=weapon().id==='shotgun'?'#ffad45':'#ffe36b';ctx.beginPath();ctx.arc(b.x,b.y,5,0,7);ctx.fill()}
+ for(let b of bullets){ctx.fillStyle=WEAPONS[weaponIndex].id==='shotgun'?'#ffad45':'#ffe36b';ctx.beginPath();ctx.arc(b.x,b.y,5,0,7);ctx.fill()}
  // particles
  for(let p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,5,5);ctx.globalAlpha=1}
  ctx.restore();
@@ -329,9 +344,32 @@ function drawCharacter(o,col,name){
 
 let joy={x:0,y:0,active:false,id:null,cx:0,cy:0};
 function setupJoystick(){
- C.addEventListener('pointerdown',e=>{if(e.clientX>W*.35)return;joy.active=true;joy.id=e.pointerId;joy.cx=e.clientX;joy.cy=e.clientY;C.setPointerCapture(e.pointerId);});
- C.addEventListener('pointermove',e=>{if(!joy.active||e.pointerId!==joy.id)return;let dx=e.clientX-joy.cx,dy=e.clientY-joy.cy,m=Math.hypot(dx,dy),r=65;if(m>r){dx=dx/m*r;dy=dy/m*r}joy.x=dx/r;joy.y=dy/r});
- const end=e=>{if(e.pointerId===joy.id){joy.active=false;joy.x=joy.y=0}};C.addEventListener('pointerup',end);C.addEventListener('pointercancel',end);
+ const base=document.getElementById('joystick'), stick=document.getElementById('stick'), r=55;
+ const update=(e)=>{
+   if(!joy.active || e.pointerId!==joy.id)return;
+   let dx=e.clientX-joy.cx,dy=e.clientY-joy.cy,m=Math.hypot(dx,dy);
+   if(m>r){dx=dx/m*r;dy=dy/m*r}
+   joy.x=dx/r;joy.y=dy/r;
+   stick.style.transform=`translate(${dx}px,${dy}px)`;
+ };
+ const start=(e)=>{
+   e.preventDefault();
+   joy.active=true;joy.id=e.pointerId;
+   const rect=base.getBoundingClientRect();
+   joy.cx=rect.left+rect.width/2;joy.cy=rect.top+rect.height/2;
+   base.setPointerCapture?.(e.pointerId);
+   update(e);
+ };
+ const end=(e)=>{
+   if(e.pointerId===joy.id){
+     joy.active=false;joy.x=joy.y=0;stick.style.transform='translate(0,0)';
+   }
+ };
+ base.addEventListener('pointerdown',start,{passive:false});
+ base.addEventListener('pointermove',update,{passive:false});
+ base.addEventListener('pointerup',end,{passive:false});
+ base.addEventListener('pointercancel',end,{passive:false});
+ // Desktop fallback: WASD remains available.
 }
 function aimAndShoot(){
  let tx=player.x+joy.x*500,ty=player.y+joy.y*500;
@@ -339,12 +377,12 @@ function aimAndShoot(){
  if(Math.hypot(joy.x,joy.y)<.2){let b=bots.filter(x=>x.alive).sort((a,b)=>dist(player,a)-dist(player,b))[0];if(b){tx=b.x;ty=b.y}}
  shoot(tx,ty)
 }
-document.getElementById('shoot').addEventListener('pointerdown',e=>{e.preventDefault();aimAndShoot()});
-document.getElementById('ability').addEventListener('pointerdown',e=>{e.preventDefault();ability()});
-document.getElementById('dash').addEventListener('pointerdown',e=>{e.preventDefault();dash()});
-document.getElementById('swap').addEventListener('pointerdown',e=>{e.preventDefault();weaponIndex=(weaponIndex+1)%WEAPONS.length;player.mag=Math.min(player.mag,WEAPONS[weaponIndex].mag);updateWeapon()});
+document.getElementById('shoot').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();aimAndShoot()},{passive:false});
+document.getElementById('ability').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();ability()},{passive:false});
+document.getElementById('dash').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dash()},{passive:false});
+document.getElementById('swap').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();weaponIndex=(weaponIndex+1)%WEAPONS.length;player.mag=WEAPONS[weaponIndex].mag;updateWeapon()},{passive:false});
 document.getElementById('pause').onclick=togglePause;
-document.getElementById('play').onclick=()=>resetGame();
+document.getElementById('play').onclick=()=>resetGame();document.getElementById('play').ontouchend=e=>{e.preventDefault();resetGame()};
 document.getElementById('again').onclick=()=>resetGame();
 document.getElementById('progressBtn').onclick=()=>{renderMenu();document.getElementById('menu').style.display='flex'};
 document.getElementById('endProgress').onclick=()=>{document.getElementById('end').style.display='none';renderMenu();document.getElementById('menu').style.display='flex'};
